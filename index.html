@@ -122,6 +122,8 @@
     font-variant-numeric: tabular-nums;
     text-align: right;
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
   }
   #top-panel .rate-row .zero-btn {
     width: 28px;
@@ -297,7 +299,7 @@
     #attitude-hud .hud-label { font-size: 12px; }
     #attitude-hud .hud-value { font-size: 18px; }
     #top-panel .rate-row {
-      grid-template-columns: 16px 1fr 38px 24px;
+      grid-template-columns: 16px 1fr 48px 24px;
       gap: 6px;
     }
     #top-panel .rate-label { font-size: 13px; font-weight: 600; text-align: center; }

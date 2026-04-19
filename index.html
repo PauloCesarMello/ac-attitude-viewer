@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d12" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Aircraft Attitude Viewer</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0b0d12;
+    color: #e6e9ef;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+  #canvas-container {
+    position: absolute;
+    inset: 0;
+    touch-action: none;
+  }
+  #canvas-container canvas { touch-action: none; display: block; }
+  #info {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    font-size: 12px;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 8px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+    max-width: 320px;
+  }
+  #info strong { color: #fff; }
+  .legend-n { color: #ff6b6b; }
+  .legend-e { color: #51cf66; }
+  .legend-d { color: #4dabf7; }
+
+  #attitude-hud {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 22px;
+    padding: 10px 20px;
+    background: rgba(14, 18, 26, 0.88);
+    border: 1px solid #2a3345;
+    border-radius: 8px;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    z-index: 5;
+    white-space: nowrap;
+  }
+  #attitude-hud .hud-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  #attitude-hud .hud-label {
+    color: #9aa6b8;
+    font-size: 18px;
+    font-weight: 500;
+  }
+  #attitude-hud .hud-value {
+    color: #e6e9ef;
+    font-size: 24px;
+    font-weight: 700;
+    min-width: 5.5ch;
+    text-align: right;
+    display: inline-block;
+    letter-spacing: 0.01em;
+  }
+
+  #controls-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+    color: #e6e9ef;
+    background: rgba(29, 38, 54, 0.92);
+    border: 1px solid #2a3345;
+    border-radius: 8px;
+    cursor: pointer;
+    display: none;
+    z-index: 10;
+    touch-action: manipulation;
+  }
+  #controls-toggle:active { background: #26324a; }
+
+  #controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 280px;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(14, 18, 26, 0.88);
+    border: 1px solid #2a3345;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    box-sizing: border-box;
+  }
+  #controls .group {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #222b3a;
+  }
+  #controls .group:last-child { border-bottom: none; margin-bottom: 0; }
+  #controls .title {
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  #controls .group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  #controls .group-head .title { margin-bottom: 0; }
+  #controls .inline-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #9aa6b8;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 2px;
+  }
+  #controls .inline-check input { margin: 0; accent-color: #5cb3ff; }
+  #controls .row-head label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  #controls .row-head input[type="checkbox"] {
+    margin: 0;
+    accent-color: #5cb3ff;
+    width: 18px;
+    height: 18px;
+  }
+  #controls .row {
+    margin: 8px 0 10px;
+  }
+  #controls .row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 2px;
+  }
+  #controls .row-body {
+    display: grid;
+    grid-template-columns: 1fr 30px;
+    align-items: center;
+    gap: 6px;
+  }
+  #controls label { color: #cbd3e1; }
+  #controls input[type="range"] {
+    width: 100%;
+    touch-action: manipulation;
+  }
+  #controls .val {
+    font-variant-numeric: tabular-nums;
+    color: #e6e9ef;
+  }
+  #controls .zero-btn {
+    width: 30px;
+    height: 30px;
+    line-height: 28px;
+    padding: 0;
+    font-size: 12px;
+    color: #cbd3e1;
+    background: #1d2636;
+    border: 1px solid #2a3345;
+    border-radius: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #controls .zero-btn:hover { background: #26324a; color: #fff; }
+  #controls .zero-btn:active { background: #26324a; color: #fff; }
+
+  #reset-view {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #e6e9ef;
+    background: rgba(29, 38, 54, 0.9);
+    border: 1px solid #2a3345;
+    border-radius: 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #reset-view:hover { background: #26324a; color: #fff; }
+  #reset-view:active { background: #26324a; color: #fff; }
+
+  /* Phones / narrow screens — hide controls behind a toggle, stack as a
+     bottom sheet, hide the NED legend to reclaim space. */
+  @media (max-width: 720px), (max-height: 500px) {
+    #info { display: none; }
+    #attitude-hud { gap: 12px; padding: 6px 12px; }
+    #attitude-hud .hud-label { font-size: 14px; }
+    #attitude-hud .hud-value { font-size: 18px; min-width: 5ch; }
+    #controls-toggle { display: block; }
+    #controls {
+      top: auto;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      width: auto;
+      max-height: 60vh;
+      padding: 10px 12px 14px;
+      font-size: 13px;
+    }
+    #controls.hidden { display: none; }
+    #controls input[type="range"] { height: 28px; }
+    #reset-view {
+      bottom: auto;
+      top: 10px;
+      left: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+<button id="reset-view" type="button" title="Recenter the camera">Reset view</button>
+<button id="controls-toggle" type="button" aria-label="Toggle controls" title="Toggle controls">☰</button>
+<div id="info">
+  <strong>Aircraft Attitude Viewer</strong><br />
+  Earth frame (NED):
+  <span class="legend-n">X = North</span>,
+  <span class="legend-e">Y = East</span>,
+  <span class="legend-d">Z = Down</span><br />
+  Drag to orbit &middot; scroll to zoom &middot; right-click drag to pan
+</div>
+
+<div id="attitude-hud" aria-label="Aircraft attitude">
+  <div class="hud-item"><span class="hud-label">Roll</span><span class="hud-value" id="roll-val">0.0°</span></div>
+  <div class="hud-item"><span class="hud-label">Pitch</span><span class="hud-value" id="pitch-val">0.0°</span></div>
+  <div class="hud-item"><span class="hud-label">Yaw</span><span class="hud-value" id="yaw-val">0.0°</span></div>
+</div>
+
+<div id="controls">
+  <div class="group">
+    <div class="title">Body-axis rotation rates</div>
+    <div class="row">
+      <div class="row-head">
+        <label for="rate-p">p — roll rate (X_b)</label>
+        <span class="val" id="rate-p-val">0 °/s</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="rate-p" min="-45" max="45" step="1" value="0" />
+        <button class="zero-btn" type="button" data-zero-rate="p" title="Reset to 0">0</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-head">
+        <label for="rate-q">q — pitch rate (Y_b)</label>
+        <span class="val" id="rate-q-val">0 °/s</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="rate-q" min="-45" max="45" step="1" value="0" />
+        <button class="zero-btn" type="button" data-zero-rate="q" title="Reset to 0">0</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-head">
+        <label for="rate-r">r — yaw rate (Z_b)</label>
+        <span class="val" id="rate-r-val">0 °/s</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="rate-r" min="-45" max="45" step="1" value="0" />
+        <button class="zero-btn" type="button" data-zero-rate="r" title="Reset to 0">0</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="group-head">
+      <div class="title">Attitude (ZYX: ψ → θ → φ)</div>
+      <label class="inline-check">
+        <input type="checkbox" data-show="eulerArcs" checked />
+        arcs
+      </label>
+    </div>
+    <div class="row">
+      <button class="zero-btn" type="button" id="level-btn"
+              style="width:100%;height:28px;line-height:26px;">Level (reset attitude)</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="title">Forces</div>
+    <div class="row">
+      <div class="row-head">
+        <label><input type="checkbox" data-show="lift" /> Lift</label>
+        <span class="val" id="f-lift-val">1.00</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="f-lift" min="0" max="2" step="0.01" value="1" />
+        <button class="zero-btn" type="button" data-zero-force="lift" title="Reset to 0">0</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-head">
+        <label><input type="checkbox" data-show="drag" /> Drag</label>
+        <span class="val" id="f-drag-val">0.10</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="f-drag" min="0" max="0.5" step="0.01" value="0.1" />
+        <button class="zero-btn" type="button" data-zero-force="drag" title="Reset to 0">0</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-head">
+        <label><input type="checkbox" data-show="thrust" /> Thrust</label>
+        <span class="val" id="f-thrust-val">0.10</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="f-thrust" min="0" max="1.5" step="0.01" value="0.1" />
+        <button class="zero-btn" type="button" data-zero-force="thrust" title="Reset to 0">0</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-head">
+        <label><input type="checkbox" data-show="weight" /> Weight</label>
+        <span class="val" id="f-weight-val">1.00</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="f-weight" min="0" max="2" step="0.01" value="1" />
+        <button class="zero-btn" type="button" data-zero-force="weight" title="Reset to 0">0</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="title">Velocity &amp; airflow angles</div>
+    <div class="row">
+      <div class="row-head">
+        <label><input type="checkbox" data-show="velocity" /> Airspeed |V|</label>
+        <span class="val" id="v-mag-val">1.00</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="v-mag" min="0" max="2" step="0.01" value="1" />
+        <button class="zero-btn" type="button" data-zero-v="V" title="Reset to 0">0</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-head">
+        <label><input type="checkbox" data-show="alphaArc" /> α (AoA)</label>
+        <span class="val" id="v-alpha-val">0.0°</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="v-alpha" min="-20" max="30" step="0.1" value="5" />
+        <button class="zero-btn" type="button" data-zero-wind="alpha" title="Reset to 0">0</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-head">
+        <label><input type="checkbox" data-show="betaArc" /> β (sideslip)</label>
+        <span class="val" id="v-beta-val">0.0°</span>
+      </div>
+      <div class="row-body">
+        <input type="range" id="v-beta" min="-20" max="20" step="0.1" value="3" />
+        <button class="zero-btn" type="button" data-zero-wind="beta" title="Reset to 0">0</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+ * FRAME CONVENTIONS
+ * ------------------------------------------------------------
+ * Earth frame (NED, right-handed):
+ *   X_e = North, Y_e = East, Z_e = Down
+ *   "Up" (sky) is therefore -Z_e. Camera.up is set to (0,0,-1)
+ *   so the scene renders with the sky at the top of the screen.
+ *
+ * Body frame (aircraft, right-handed):
+ *   X_b = forward (nose), Y_b = right wing, Z_b = down (belly)
+ *
+ * Euler angles — ZYX intrinsic (yaw-pitch-roll):
+ *   yaw  ψ about Z_e,
+ *   then pitch θ about the new Y,
+ *   then roll  φ about the new X.
+ *   R_b_to_e = Rz(ψ) · Ry(θ) · Rx(φ)
+ *   THREE.Euler order string: 'ZYX'
+ *
+ * Wind frame (derived from velocity vector V in body frame):
+ *   α = atan2(w, u)         — angle of attack, in body X-Z plane
+ *   β = asin(v / |V|)       — sideslip, between V and body X-Z plane
+ * ============================================================ */
+
+// ------------------------------------------------------------
+// Scene / camera / renderer / controls
+// ------------------------------------------------------------
+const container = document.getElementById('canvas-container');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0d12);
+
+const camera = new THREE.PerspectiveCamera(
+  50,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+// In NED, "up" is -Z. Set camera.up so OrbitControls behaves intuitively.
+camera.up.set(0, 0, -1);
+camera.position.set(12, -12, -9); // NE and above the origin
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.update();
+
+// Snapshot of the initial camera state, used by the "Reset view" button.
+const INITIAL_CAMERA = {
+  position: camera.position.clone(),
+  up:       camera.up.clone(),
+  target:   controls.target.clone(),
+};
+
+// Default visibility flags used both at startup and on "Reset view".
+const DEFAULT_SHOW = {
+  earth: true, bodyAxes: true, eulerArcs: true,
+  forces: true,
+  velocity: false, alphaArc: false, betaArc: false,
+  lift: false, drag: false, thrust: false, weight: false,
+};
+
+document.getElementById('reset-view').addEventListener('click', () => {
+  camera.position.copy(INITIAL_CAMERA.position);
+  camera.up.copy(INITIAL_CAMERA.up);
+  controls.target.copy(INITIAL_CAMERA.target);
+  controls.update();
+
+  // Reset the visibility flags and sync every data-show checkbox to match.
+  Object.assign(state.show, DEFAULT_SHOW);
+  document.querySelectorAll('[data-show]').forEach((chk) => {
+    const key = chk.dataset.show;
+    if (key in DEFAULT_SHOW) chk.checked = DEFAULT_SHOW[key];
+  });
+  updateAircraft();
+});
+
+// One-finger touch = orbit, two-finger = pan/zoom — matches the desktop
+// left-drag-to-orbit / right-drag-to-pan / scroll-to-zoom mapping.
+controls.touches = {
+  ONE: THREE.TOUCH.ROTATE,
+  TWO: THREE.TOUCH.DOLLY_PAN,
+};
+
+// Collapsible controls panel on narrow screens.
+const controlsPanel = document.getElementById('controls');
+const controlsToggle = document.getElementById('controls-toggle');
+const mq = window.matchMedia('(max-width: 720px), (max-height: 500px)');
+function applyCompactLayout() {
+  if (mq.matches) {
+    controlsPanel.classList.add('hidden');
+  } else {
+    controlsPanel.classList.remove('hidden');
+  }
+}
+applyCompactLayout();
+mq.addEventListener('change', applyCompactLayout);
+controlsToggle.addEventListener('click', () => {
+  controlsPanel.classList.toggle('hidden');
+});
+
+// Lighting — hemisphere (sky/ground) + a directional "sun" from above (-Z)
+// + a small fill light from the opposite side so curved surfaces read well.
+scene.add(new THREE.HemisphereLight(0x8ca8d8, 0x1a2230, 0.55));
+scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(5, 5, -10);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xbfd1ea, 0.35);
+fill.position.set(-6, -4, -3);
+scene.add(fill);
+
+// ------------------------------------------------------------
+// Earth-frame construction: ground plane + grid + NED axes
+// ------------------------------------------------------------
+function makeTextSprite(text, color = '#ffffff') {
+  const fontPx = 140;
+  const font = `bold ${fontPx}px system-ui, sans-serif`;
+  const padding = 24;
+
+  // Measure first so the canvas fits any label (e.g. "Down").
+  const measureCanvas = document.createElement('canvas');
+  const mctx = measureCanvas.getContext('2d');
+  mctx.font = font;
+  const textWidth = Math.ceil(mctx.measureText(text).width);
+
+  const canvasW = textWidth + padding * 2;
+  const canvasH = fontPx + padding * 2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  ctx.font = font;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = color;
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.lineWidth = 10;
+  ctx.strokeText(text, canvasW / 2, canvasH / 2);
+  ctx.fillText(text, canvasW / 2, canvasH / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  // Scale sprite so 1 world-unit ≈ one "M" height, preserving aspect.
+  const worldH = 0.55;
+  sprite.scale.set(worldH * (canvasW / canvasH), worldH, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+// Thick arrow built from a cylinder shaft + cone head, oriented along +X.
+// Use a group so we can rotate the whole arrow to any direction.
+function makeThickArrow(direction, length, color, thickness = 0.06) {
+  const group = new THREE.Group();
+  const headLen = Math.min(0.6, length * 0.18);
+  const shaftLen = length - headLen;
+
+  const shaftGeom = new THREE.CylinderGeometry(thickness, thickness, shaftLen, 16);
+  // CylinderGeometry axis is +Y; move origin to start, rotate to +X.
+  shaftGeom.translate(0, shaftLen / 2, 0);
+  shaftGeom.rotateZ(-Math.PI / 2);
+  const shaft = new THREE.Mesh(shaftGeom, new THREE.MeshStandardMaterial({ color }));
+
+  const headGeom = new THREE.ConeGeometry(thickness * 2.5, headLen, 20);
+  headGeom.translate(0, shaftLen + headLen / 2, 0);
+  headGeom.rotateZ(-Math.PI / 2);
+  const head = new THREE.Mesh(headGeom, new THREE.MeshStandardMaterial({ color }));
+
+  group.add(shaft);
+  group.add(head);
+
+  // Rotate the +X-aligned arrow to face `direction`.
+  const dir = direction.clone().normalize();
+  const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
+  group.quaternion.copy(quat);
+
+  return group;
+}
+
+function buildEarthFrame() {
+  const group = new THREE.Group();
+  group.name = 'earthFrame';
+
+  // Ground plane in X-Y (Z=0). Default PlaneGeometry is in X-Y already.
+  const planeSize = 30;
+  const planeGeom = new THREE.PlaneGeometry(planeSize, planeSize);
+  const planeMat = new THREE.MeshStandardMaterial({
+    color: 0x1a2230,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.55,
+  });
+  const plane = new THREE.Mesh(planeGeom, planeMat);
+  group.add(plane);
+
+  // Grid in the X-Y plane. GridHelper is built in X-Z; rotate 90° about X.
+  const grid = new THREE.GridHelper(planeSize, 30, 0x3a4a66, 0x22303f);
+  grid.rotation.x = Math.PI / 2;
+  group.add(grid);
+
+  // Axes: N (+X, red), E (+Y, green), Down (+Z, blue)
+  const axisLen = 6;
+  const nAxis = makeThickArrow(new THREE.Vector3(1, 0, 0), axisLen, 0xff6b6b, 0.035);
+  const eAxis = makeThickArrow(new THREE.Vector3(0, 1, 0), axisLen, 0x51cf66, 0.035);
+  const dAxis = makeThickArrow(new THREE.Vector3(0, 0, 1), axisLen, 0x4dabf7, 0.035);
+  group.add(nAxis, eAxis, dAxis);
+
+  // Labels at arrow tips.
+  const nLabel = makeTextSprite('N', '#ff6b6b');
+  nLabel.position.set(axisLen + 0.5, 0, 0);
+  const eLabel = makeTextSprite('E', '#51cf66');
+  eLabel.position.set(0, axisLen + 0.5, 0);
+  const dLabel = makeTextSprite('Down', '#4dabf7');
+  dLabel.position.set(0, 0, axisLen + 0.5);
+  group.add(nLabel, eLabel, dLabel);
+
+  // Origin marker.
+  const origin = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  group.add(origin);
+
+  return group;
+}
+
+const earthFrame = buildEarthFrame();
+scene.add(earthFrame);
+
+// ------------------------------------------------------------
+// Aircraft model — simple stylized airframe built from primitives.
+// Conventions: nose along +X_b, right wing along +Y_b, belly along +Z_b.
+// Distinct colors on nose / right wing tip / belly so orientation is obvious.
+// ------------------------------------------------------------
+function buildAircraftMesh() {
+  const g = new THREE.Group();
+  g.name = 'aircraftMesh';
+
+  const gray      = new THREE.MeshStandardMaterial({ color: 0xc1c8d4, metalness: 0.45, roughness: 0.5 });
+  const darkGray  = new THREE.MeshStandardMaterial({ color: 0x434b58, metalness: 0.6,  roughness: 0.35 });
+  const innerDark = new THREE.MeshStandardMaterial({ color: 0x15191f, metalness: 0.3,  roughness: 0.9, side: THREE.DoubleSide });
+  const yellow    = new THREE.MeshStandardMaterial({ color: 0xffd43b, metalness: 0.25, roughness: 0.5 });
+  const green     = new THREE.MeshStandardMaterial({ color: 0x51cf66, metalness: 0.25, roughness: 0.5 });
+  const blue      = new THREE.MeshStandardMaterial({ color: 0x4dabf7, metalness: 0.25, roughness: 0.5 });
+  const canopyMat = new THREE.MeshStandardMaterial({
+    color: 0x14202c, metalness: 0.65, roughness: 0.12,
+    transparent: true, opacity: 0.78,
+  });
+
+  // Fuselage is an axisymmetric body of revolution. Points are (radius,
+  // position-along-X) before rotation; LatheGeometry revolves around +Y, then
+  // rotateZ(-π/2) aligns the axis with body +X_b.
+  const fusR = 0.26;
+  const fusPts = [
+    new THREE.Vector2(0.02,        -2.8),
+    new THREE.Vector2(fusR * 0.55, -2.65),
+    new THREE.Vector2(fusR * 0.82, -2.45),
+    new THREE.Vector2(fusR * 0.96, -2.05),
+    new THREE.Vector2(fusR,        -1.2),
+    new THREE.Vector2(fusR,         0.6),
+    new THREE.Vector2(fusR * 0.95,  1.0),
+  ];
+  const fusGeom = new THREE.LatheGeometry(fusPts, 28);
+  fusGeom.rotateZ(-Math.PI / 2);
+  g.add(new THREE.Mesh(fusGeom, gray));
+
+  // Yellow nose cone — marks +X_b. Separate lathe so only the tip is yellow.
+  const nosePts = [
+    new THREE.Vector2(fusR * 0.95,  1.0),
+    new THREE.Vector2(fusR * 0.82,  1.2),
+    new THREE.Vector2(fusR * 0.58,  1.45),
+    new THREE.Vector2(fusR * 0.3,   1.65),
+    new THREE.Vector2(0.0,          1.75),
+  ];
+  const noseGeom = new THREE.LatheGeometry(nosePts, 24);
+  noseGeom.rotateZ(-Math.PI / 2);
+  g.add(new THREE.Mesh(noseGeom, yellow));
+
+  // Engine nozzle (dark ring) at the tail, with a darker interior disk so it
+  // reads as an exhaust opening rather than a capped cylinder.
+  const nozzleGeom = new THREE.CylinderGeometry(fusR * 0.62, fusR * 0.7, 0.22, 20, 1, true);
+  nozzleGeom.rotateZ(-Math.PI / 2);
+  nozzleGeom.translate(-2.76, 0, 0);
+  g.add(new THREE.Mesh(nozzleGeom, darkGray));
+
+  const nozzleInner = new THREE.Mesh(
+    new THREE.CircleGeometry(fusR * 0.6, 20),
+    innerDark
+  );
+  nozzleInner.rotation.y = Math.PI / 2;
+  nozzleInner.position.set(-2.85, 0, 0);
+  g.add(nozzleInner);
+
+  // Canopy bubble on top of the fuselage (body −Z_b side). Upper hemisphere
+  // from SphereGeometry, rotated so the dome points along −Z_b, then scaled
+  // into a forward-elongated, narrow, shallow ellipsoid.
+  const canopyGeom = new THREE.SphereGeometry(1, 22, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+  canopyGeom.rotateX(-Math.PI / 2);
+  canopyGeom.scale(0.55, 0.17, 0.19);
+  const canopy = new THREE.Mesh(canopyGeom, canopyMat);
+  canopy.position.set(0.32, 0, -fusR + 0.02);
+  g.add(canopy);
+
+  // A thin darker ring at the base of the canopy for contrast.
+  const canopyBase = new THREE.Mesh(
+    new THREE.TorusGeometry(0.19, 0.012, 8, 32),
+    darkGray
+  );
+  canopyBase.scale.set(2.9, 1, 0.9); // stretch forward/back to match bubble
+  canopyBase.rotation.x = Math.PI / 2;
+  canopyBase.position.set(0.32, 0, -fusR + 0.03);
+  g.add(canopyBase);
+
+  // Main wings — tapered, mildly swept planform in the body X-Y plane,
+  // extruded along body Z for thickness. Shape points go counter-clockwise
+  // from the right-tip LE around to the right-tip TE.
+  const wingShape = new THREE.Shape();
+  wingShape.moveTo(-0.1,  1.95);   // right tip LE
+  wingShape.lineTo( 0.55, 0);      // root LE
+  wingShape.lineTo(-0.1, -1.95);   // left tip LE
+  wingShape.lineTo(-0.5, -1.95);   // left tip TE
+  wingShape.lineTo(-0.75, 0);      // root TE
+  wingShape.lineTo(-0.5,  1.95);   // right tip TE
+  wingShape.closePath();
+
+  const wingGeom = new THREE.ExtrudeGeometry(wingShape, { depth: 0.07, bevelEnabled: false });
+  wingGeom.translate(0, 0, -0.035);
+  wingGeom.translate(-0.2, 0, 0);
+  g.add(new THREE.Mesh(wingGeom, gray));
+
+  // Right wingtip marker (green) — marks +Y_b.
+  const rTipShape = new THREE.Shape();
+  rTipShape.moveTo(-0.1,  1.95);
+  rTipShape.lineTo(-0.15, 1.7);
+  rTipShape.lineTo(-0.45, 1.7);
+  rTipShape.lineTo(-0.5,  1.95);
+  rTipShape.closePath();
+  const rTipGeom = new THREE.ExtrudeGeometry(rTipShape, { depth: 0.072, bevelEnabled: false });
+  rTipGeom.translate(0, 0, -0.036);
+  rTipGeom.translate(-0.2, 0, 0);
+  g.add(new THREE.Mesh(rTipGeom, green));
+
+  // Horizontal stabilizer — same shape family, smaller, shifted aft.
+  const hStabShape = new THREE.Shape();
+  hStabShape.moveTo(-0.05,  0.78);
+  hStabShape.lineTo( 0.25,  0);
+  hStabShape.lineTo(-0.05, -0.78);
+  hStabShape.lineTo(-0.28, -0.78);
+  hStabShape.lineTo(-0.42,  0);
+  hStabShape.lineTo(-0.28,  0.78);
+  hStabShape.closePath();
+  const hStabGeom = new THREE.ExtrudeGeometry(hStabShape, { depth: 0.05, bevelEnabled: false });
+  hStabGeom.translate(0, 0, -0.025);
+  hStabGeom.translate(-2.3, 0, 0);
+  g.add(new THREE.Mesh(hStabGeom, gray));
+
+  // Vertical fin. Shape lives in the X-Y plane (Y=0 at base, Y>0 at tip),
+  // then rotateX(-π/2) maps Y_shape → -Z_body (up in NED body) and the
+  // Z_shape extrusion → Y_body (thickness spanwise).
+  const finShape = new THREE.Shape();
+  finShape.moveTo(-0.42, 0);
+  finShape.lineTo( 0.32, 0);
+  finShape.lineTo( 0.02, 0.82);
+  finShape.lineTo(-0.32, 0.82);
+  finShape.closePath();
+  const finGeom = new THREE.ExtrudeGeometry(finShape, { depth: 0.05, bevelEnabled: false });
+  finGeom.translate(0, 0, -0.025);
+  finGeom.rotateX(-Math.PI / 2);
+  finGeom.translate(-2.15, 0, -fusR + 0.01);
+  g.add(new THREE.Mesh(finGeom, gray));
+
+  // Belly marker (blue) — marks +Z_b. Slight wedge so it reads as a panel.
+  const bellyShape = new THREE.Shape();
+  bellyShape.moveTo( 0.45,  0.14);
+  bellyShape.lineTo( 0.45, -0.14);
+  bellyShape.lineTo(-0.55, -0.14);
+  bellyShape.lineTo(-0.55,  0.14);
+  bellyShape.closePath();
+  const bellyGeom = new THREE.ExtrudeGeometry(bellyShape, { depth: 0.03, bevelEnabled: false });
+  bellyGeom.translate(-0.1, 0, fusR - 0.005);
+  g.add(new THREE.Mesh(bellyGeom, blue));
+
+  return g;
+}
+
+// Body-frame axis arrows — rotate with the aircraft.
+function buildBodyAxes() {
+  const g = new THREE.Group();
+  g.name = 'bodyAxes';
+  const len = 3.2;
+  g.add(makeThickArrow(new THREE.Vector3(1, 0, 0), len, 0xff6b6b, 0.022));
+  g.add(makeThickArrow(new THREE.Vector3(0, 1, 0), len, 0x51cf66, 0.022));
+  g.add(makeThickArrow(new THREE.Vector3(0, 0, 1), len, 0x4dabf7, 0.022));
+
+  const xl = makeTextSprite('X_b', '#ff6b6b'); xl.position.set(len + 0.4, 0, 0); g.add(xl);
+  const yl = makeTextSprite('Y_b', '#51cf66'); yl.position.set(0, len + 0.4, 0); g.add(yl);
+  const zl = makeTextSprite('Z_b', '#4dabf7'); zl.position.set(0, 0, len + 0.4); g.add(zl);
+  return g;
+}
+
+// Root group for everything that rotates with the aircraft.
+const aircraft = new THREE.Group();
+aircraft.name = 'aircraft';
+const aircraftMesh = buildAircraftMesh();
+const bodyAxes = buildBodyAxes();
+aircraft.add(aircraftMesh);
+aircraft.add(bodyAxes);
+scene.add(aircraft);
+
+// ------------------------------------------------------------
+// Euler angle arcs — visually show WHERE each of ψ, θ, φ lives.
+//
+// ZYX intrinsic sequence, step-by-step:
+//   Frame 0 (earth): {X_e, Y_e, Z_e}
+//   ψ rotates about Z_e       →  Frame 1: {X_1, Y_1, Z_1=Z_e}
+//   θ rotates about Y_1       →  Frame 2: {X_2=X_b, Y_2=Y_1, Z_2}
+//   φ rotates about X_b       →  Body frame: {X_b, Y_b, Z_b}
+//
+// Arcs drawn at the origin (earth-fixed, not attached to the aircraft):
+//   Yaw ψ   : from X_e to X_1, about +Z_e, in the horizontal plane.
+//   Pitch θ : from X_1 to X_b, about  Y_1, in the vertical plane containing them.
+//   Roll φ  : from Y_1 to Y_b, about  X_b, in the plane perpendicular to X_b.
+// ------------------------------------------------------------
+const EULER_COLORS = { psi: 0xffa94d, theta: 0xf783ac, phi: 0x4dd0e1 };
+
+function disposeChildren(g) {
+  while (g.children.length) {
+    const c = g.children.pop();
+    if (c.geometry) c.geometry.dispose();
+    const m = c.material;
+    if (m) Array.isArray(m) ? m.forEach(x => x.dispose()) : m.dispose();
+  }
+}
+
+// Faded dashed line from origin along `direction` — used as a reference for
+// the intermediate yaw-only frame (X_1, Y_1) so the pitch/roll arcs visibly
+// terminate on a drawn line rather than empty space. depthTest is disabled so
+// the line stays visible even when it passes through the aircraft mesh.
+function makeDashedRefLine(direction, length, color, opacity = 0.6) {
+  const start = new THREE.Vector3(0, 0, 0);
+  const end = direction.clone().normalize().multiplyScalar(length);
+  const geom = new THREE.BufferGeometry().setFromPoints([start, end]);
+  const mat = new THREE.LineDashedMaterial({
+    color,
+    dashSize: 0.22,
+    gapSize: 0.14,
+    transparent: true,
+    opacity,
+    depthTest: false,
+  });
+  const line = new THREE.Line(geom, mat);
+  line.computeLineDistances();
+  line.renderOrder = 3;
+  return line;
+}
+
+// Force an object (and its descendants) to render on top of the scene, used
+// for diagnostic geometry that can otherwise be occluded by the aircraft.
+function forceOnTop(obj, renderOrder = 3) {
+  obj.traverse((o) => {
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => { m.depthTest = false; m.transparent = true; });
+    }
+    o.renderOrder = renderOrder;
+  });
+}
+
+function makeArc(axis, startDir, angle, radius, color, tube = 0.03, seg = 64) {
+  if (Math.abs(angle) < 1e-3) return null;
+  const a = axis.clone().normalize();
+  const s = startDir.clone().normalize();
+  const pts = [];
+  const q = new THREE.Quaternion();
+  for (let i = 0; i <= seg; i++) {
+    const t = (i / seg) * angle;
+    q.setFromAxisAngle(a, t);
+    pts.push(s.clone().applyQuaternion(q).multiplyScalar(radius));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const geom = new THREE.TubeGeometry(curve, seg, tube, 8, false);
+  return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color }));
+}
+
+function arcMidpoint(axis, startDir, angle, radius) {
+  const q = new THREE.Quaternion().setFromAxisAngle(axis.clone().normalize(), angle / 2);
+  return startDir.clone().normalize().applyQuaternion(q).multiplyScalar(radius);
+}
+
+const eulerArcs = new THREE.Group();
+eulerArcs.name = 'eulerArcs';
+scene.add(eulerArcs);
+
+// ------------------------------------------------------------
+// Force arrows — rebuilt from state on every update.
+//
+// Directions (wind-axes convention):
+//   Weight : +Z_e  (earth down), always.
+//   Thrust : +X_b  (along the nose), transformed to earth frame.
+//   Drag   : −V̂    (opposite the velocity vector, earth frame).
+//   Lift   : in the body plane of symmetry (X-Z_b), perpendicular to
+//            the projection of V into that plane, toward the top of the
+//            aircraft. In body coords: L̂_b = (sin α, 0, −cos α).
+// Velocity vector in body coords from α, β:
+//   V̂_b = (cos α·cos β, sin β, sin α·cos β)
+// Arrow length = magnitude × FORCE_LEN_SCALE.
+// ------------------------------------------------------------
+const FORCE_LEN_SCALE = 2.0;
+const FORCE_COLORS = {
+  lift:   { num: 0x5cb3ff, hex: '#5cb3ff' },
+  drag:   { num: 0xff8c42, hex: '#ff8c42' },
+  thrust: { num: 0xffd43b, hex: '#ffd43b' },
+  weight: { num: 0xb197fc, hex: '#b197fc' },
+};
+
+function makeLabeledArrow(direction, length, colorNum, colorHex, label, thickness = 0.05) {
+  const g = new THREE.Group();
+  const arrow = makeThickArrow(direction.clone().normalize(), length, colorNum, thickness);
+  g.add(arrow);
+  const lbl = makeTextSprite(label, colorHex);
+  lbl.position.copy(direction.clone().normalize().multiplyScalar(length + 0.45));
+  g.add(lbl);
+  return g;
+}
+
+const forcesGroup = new THREE.Group();
+forcesGroup.name = 'forces';
+scene.add(forcesGroup);
+
+// ------------------------------------------------------------
+// Velocity vector + α, β arcs — all in the body frame, so parented
+// to the aircraft and expressed in body coordinates:
+//   V̂_b           = (cos α cos β, sin β, sin α cos β)
+//   V_projXZ       = (cos α, 0, sin α)        — V projected onto symmetry plane
+//   α arc          : axis = +Y_b, start = +X_b, angle = α  (in X-Z plane)
+//   β arc          : axis = (−sin α, 0, cos α), start = V_projXZ, angle = β
+//                    (goes from V_projXZ to V̂_b out of the symmetry plane)
+// ------------------------------------------------------------
+const VELOCITY_LEN_SCALE = 3.0; // |V|=1 → 3 units long
+const VELOCITY_COLOR_NUM = 0x74c0fc;
+const VELOCITY_COLOR_HEX = '#74c0fc';
+const ALPHA_COLOR_HEX = '#ffd43b';
+const BETA_COLOR_HEX  = '#69db7c';
+
+const velocityGroup = new THREE.Group();
+velocityGroup.name = 'velocity';
+aircraft.add(velocityGroup);
+
+function rebuildVelocity(s) {
+  disposeChildren(velocityGroup);
+
+  const cA = Math.cos(s.alpha), sA = Math.sin(s.alpha);
+  const cB = Math.cos(s.beta),  sB = Math.sin(s.beta);
+  const V_b       = new THREE.Vector3(cA * cB, sB, sA * cB);
+  const V_projXZ  = new THREE.Vector3(cA, 0, sA);
+  const betaAxis  = new THREE.Vector3(-sA, 0, cA);
+  const X_b = new THREE.Vector3(1, 0, 0);
+  const Y_b = new THREE.Vector3(0, 1, 0);
+
+  // V_projXZ dashed reference line — endpoint of the α arc and startpoint of
+  // the β arc. Only distinct from X_b when α ≠ 0 (otherwise X_b is already
+  // drawn as a body axis).
+  if (Math.abs(s.alpha) > 1e-3 && (s.show.alphaArc || s.show.betaArc)) {
+    const refLen = 2.45;
+    velocityGroup.add(makeDashedRefLine(V_projXZ, refLen, 0xffd43b, 0.75));
+    const lbl = makeTextSprite('V_xz', ALPHA_COLOR_HEX);
+    lbl.position.copy(V_projXZ.clone().multiplyScalar(refLen + 0.3));
+    lbl.scale.multiplyScalar(0.65);
+    velocityGroup.add(lbl);
+  }
+
+  // V̂_b dashed reference line — endpoint of the β arc. Only drawn when the
+  // solid velocity arrow is hidden and β ≠ 0 (otherwise V = V_projXZ, already
+  // referenced above).
+  if (s.show.betaArc && !s.show.velocity && Math.abs(s.beta) > 1e-3) {
+    velocityGroup.add(makeDashedRefLine(V_b, 2.6, VELOCITY_COLOR_NUM, 0.65));
+  }
+
+  // Velocity arrow — along V̂_b, length scaled by airspeed magnitude.
+  if (s.show.velocity) {
+    const len = s.V * VELOCITY_LEN_SCALE;
+    if (len > 1e-3) {
+      velocityGroup.add(makeLabeledArrow(
+        V_b, len, VELOCITY_COLOR_NUM, VELOCITY_COLOR_HEX, 'V', 0.05
+      ));
+    }
+  }
+
+  // α arc — X_b to V_projXZ, in body X-Z plane, about −Y_b so that a positive
+  // α sweeps toward +Z_b (belly), matching V_projXZ = (cos α, 0, sin α).
+  // Radius chosen so the arc sits past the nose tip.
+  if (s.show.alphaArc) {
+    const alphaAxis = new THREE.Vector3(0, -1, 0);
+    const arc = makeArc(alphaAxis, X_b, s.alpha, 2.2, 0xffd43b, 0.032);
+    if (arc) {
+      forceOnTop(arc);
+      velocityGroup.add(arc);
+      const lbl = makeTextSprite('α', ALPHA_COLOR_HEX);
+      lbl.position.copy(arcMidpoint(alphaAxis, X_b, s.alpha, 2.4));
+      velocityGroup.add(lbl);
+    }
+  }
+
+  // β arc — V_projXZ to V̂_b, about (−sin α, 0, cos α).
+  if (s.show.betaArc) {
+    const arc = makeArc(betaAxis, V_projXZ, s.beta, 2.4, 0x69db7c, 0.032);
+    if (arc) {
+      forceOnTop(arc);
+      velocityGroup.add(arc);
+      const lbl = makeTextSprite('β', BETA_COLOR_HEX);
+      lbl.position.copy(arcMidpoint(betaAxis, V_projXZ, s.beta, 2.6));
+    }
+  }
+}
+
+function rebuildForces(s) {
+  disposeChildren(forcesGroup);
+
+  const qBody = s.quat;
+
+  // Weight along +Z_e (earth down)
+  if (s.show.weight && s.forces.weight > 1e-3) {
+    forcesGroup.add(makeLabeledArrow(
+      new THREE.Vector3(0, 0, 1),
+      s.forces.weight * FORCE_LEN_SCALE,
+      FORCE_COLORS.weight.num, FORCE_COLORS.weight.hex, 'W'
+    ));
+  }
+
+  // Thrust along +X_b (body forward) → earth
+  if (s.show.thrust && s.forces.thrust > 1e-3) {
+    const dir = new THREE.Vector3(1, 0, 0).applyQuaternion(qBody);
+    forcesGroup.add(makeLabeledArrow(
+      dir, s.forces.thrust * FORCE_LEN_SCALE,
+      FORCE_COLORS.thrust.num, FORCE_COLORS.thrust.hex, 'T'
+    ));
+  }
+
+  // Velocity direction in body frame, then earth frame
+  const cA = Math.cos(s.alpha), sA = Math.sin(s.alpha);
+  const cB = Math.cos(s.beta),  sB = Math.sin(s.beta);
+  const V_b = new THREE.Vector3(cA * cB, sB, sA * cB);
+  const V_e = V_b.clone().applyQuaternion(qBody).normalize();
+
+  // Drag opposite V in earth frame
+  if (s.show.drag && s.forces.drag > 1e-3) {
+    const dir = V_e.clone().negate();
+    forcesGroup.add(makeLabeledArrow(
+      dir, s.forces.drag * FORCE_LEN_SCALE,
+      FORCE_COLORS.drag.num, FORCE_COLORS.drag.hex, 'D'
+    ));
+  }
+
+  // Lift in body plane of symmetry: L̂_b = (sin α, 0, −cos α), then → earth
+  if (s.show.lift && s.forces.lift > 1e-3) {
+    const L_b = new THREE.Vector3(sA, 0, -cA);
+    const L_e = L_b.applyQuaternion(qBody).normalize();
+    forcesGroup.add(makeLabeledArrow(
+      L_e, s.forces.lift * FORCE_LEN_SCALE,
+      FORCE_COLORS.lift.num, FORCE_COLORS.lift.hex, 'L'
+    ));
+  }
+}
+
+function rebuildEulerArcs(s) {
+  disposeChildren(eulerArcs);
+
+  const Z_e = new THREE.Vector3(0, 0, 1);
+  const X_e = new THREE.Vector3(1, 0, 0);
+  const X_1 = new THREE.Vector3(Math.cos(s.psi), Math.sin(s.psi), 0);
+  const Y_1 = new THREE.Vector3(-Math.sin(s.psi), Math.cos(s.psi), 0);
+  // X_b after yaw and pitch:
+  const qYP = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, s.theta, s.psi, 'ZYX'));
+  const X_b = new THREE.Vector3(1, 0, 0).applyQuaternion(qYP);
+
+  const rYaw = 3.0, rPitch = 2.7, rRoll = 1.55;
+
+  // Reference lines for the yaw-only intermediate frame (X_1, Y_1). Only
+  // meaningful when ψ ≠ 0 — otherwise X_1 = X_e (N) and Y_1 = Y_e (E), which
+  // are already drawn as the earth axes.
+  if (Math.abs(s.psi) > 1e-3) {
+    const refLenX = Math.max(rPitch, rYaw) * 1.02;
+    const refLenY = rRoll * 1.25;
+    eulerArcs.add(makeDashedRefLine(X_1, refLenX, EULER_COLORS.theta, 0.65));
+    eulerArcs.add(makeDashedRefLine(Y_1, refLenY, EULER_COLORS.phi,   0.65));
+
+    const xLbl = makeTextSprite('X₁', '#f783ac');
+    xLbl.position.copy(X_1.clone().multiplyScalar(refLenX + 0.3));
+    xLbl.scale.multiplyScalar(0.7);
+    eulerArcs.add(xLbl);
+
+    const yLbl = makeTextSprite('Y₁', '#4dd0e1');
+    yLbl.position.copy(Y_1.clone().multiplyScalar(refLenY + 0.3));
+    yLbl.scale.multiplyScalar(0.7);
+    eulerArcs.add(yLbl);
+  }
+
+  const yawArc = makeArc(Z_e, X_e, s.psi, rYaw, EULER_COLORS.psi);
+  if (yawArc) {
+    eulerArcs.add(yawArc);
+    const lbl = makeTextSprite('ψ', '#ffa94d');
+    lbl.position.copy(arcMidpoint(Z_e, X_e, s.psi, rYaw * 1.12));
+    eulerArcs.add(lbl);
+  }
+
+  const pitchArc = makeArc(Y_1, X_1, s.theta, rPitch, EULER_COLORS.theta);
+  if (pitchArc) {
+    eulerArcs.add(pitchArc);
+    const lbl = makeTextSprite('θ', '#f783ac');
+    lbl.position.copy(arcMidpoint(Y_1, X_1, s.theta, rPitch * 1.12));
+    eulerArcs.add(lbl);
+  }
+
+  const rollArc = makeArc(X_b, Y_1, s.phi, rRoll, EULER_COLORS.phi);
+  if (rollArc) {
+    eulerArcs.add(rollArc);
+    const lbl = makeTextSprite('φ', '#4dd0e1');
+    lbl.position.copy(arcMidpoint(X_b, Y_1, s.phi, rRoll * 1.18));
+    eulerArcs.add(lbl);
+  }
+}
+
+// ------------------------------------------------------------
+// State object — SINGLE SOURCE OF TRUTH for aircraft + flight state.
+// Populated now so step 2 can start wiring it up. Angles in radians.
+// ------------------------------------------------------------
+const state = {
+  // Orientation source of truth: body-to-earth quaternion.
+  // We integrate body-axis rates into this; Euler angles are derived.
+  quat: new THREE.Quaternion(),
+  // Body-axis angular rates (rad/s) — inputs from the sliders.
+  p: 0,       // roll rate about X_b
+  q: 0,       // pitch rate about Y_b
+  r: 0,       // yaw rate about Z_b
+  // Derived ZYX Euler angles — updated from `quat` on every frame.
+  // Kept in state so the arc/force rebuild code can read them directly.
+  phi: 0,     // roll  φ
+  theta: 0,   // pitch θ
+  psi: 0,     // yaw   ψ
+  // Wind-frame angles
+  alpha: 5 * Math.PI / 180,
+  beta:  3 * Math.PI / 180,
+  // Airspeed magnitude |V| (used in step 6 for the velocity vector)
+  V: 1,
+  // Force magnitudes (trimmed level flight by default: L=W, T=D)
+  forces: { lift: 1, drag: 0.1, thrust: 0.1, weight: 1 },
+  // Visibility toggles
+  show: {
+    earth: true, bodyAxes: true, eulerArcs: true,
+    forces: true,
+    velocity: false, alphaArc: false, betaArc: false,
+    // Per-force toggles
+    lift: false, drag: false, thrust: false, weight: false,
+  },
+};
+
+// ------------------------------------------------------------
+// Rotation math — the orientation is stored as a quaternion in
+// state.quat and integrated from body-axis rates in the animate loop.
+// A reused THREE.Euler is kept here only to decompose state.quat back
+// into ZYX (ψ → θ → φ) Euler angles for display and arc math.
+// ------------------------------------------------------------
+const _euler = new THREE.Euler();
+
+// ------------------------------------------------------------
+// Single update function — reads `state`, writes the scene + UI.
+// Both sliders and (later) drag handlers must go through here.
+// ------------------------------------------------------------
+const rollVal    = document.getElementById('roll-val');
+const pitchVal   = document.getElementById('pitch-val');
+const yawVal     = document.getElementById('yaw-val');
+const ratePInput = document.getElementById('rate-p');
+const rateQInput = document.getElementById('rate-q');
+const rateRInput = document.getElementById('rate-r');
+const ratePVal   = document.getElementById('rate-p-val');
+const rateQVal   = document.getElementById('rate-q-val');
+const rateRVal   = document.getElementById('rate-r-val');
+
+const RAD = Math.PI / 180;
+const DEG = 180 / Math.PI;
+
+function updateAircraft() {
+  // Apply the body-to-earth quaternion directly.
+  aircraft.quaternion.copy(state.quat);
+
+  // Derive ZYX Euler angles from the quaternion for display and for the arc
+  // math. Near pitch = ±90° this decomposition is singular — expected.
+  _euler.setFromQuaternion(state.quat, 'ZYX');
+  state.phi   = _euler.x;
+  state.theta = _euler.y;
+  state.psi   = _euler.z;
+
+  // Euler arcs, forces, velocity — rebuild on every change.
+  rebuildEulerArcs(state);
+  rebuildForces(state);
+  rebuildVelocity(state);
+
+  // Visibility
+  earthFrame.visible = state.show.earth;
+  bodyAxes.visible = state.show.bodyAxes;
+  eulerArcs.visible = state.show.eulerArcs;
+  forcesGroup.visible = state.show.forces;
+  velocityGroup.visible = true; // individual children are gated by state.show
+
+  // Attitude readouts (display only — sliders no longer drive these).
+  rollVal.textContent  = (state.phi   * DEG).toFixed(1) + '°';
+  pitchVal.textContent = (state.theta * DEG).toFixed(1) + '°';
+  yawVal.textContent   = (state.psi   * DEG).toFixed(1) + '°';
+
+  // Rate slider readouts — keep in sync (e.g. after snap-to-zero).
+  if (document.activeElement !== ratePInput) ratePInput.value = (state.p * DEG).toFixed(0);
+  if (document.activeElement !== rateQInput) rateQInput.value = (state.q * DEG).toFixed(0);
+  if (document.activeElement !== rateRInput) rateRInput.value = (state.r * DEG).toFixed(0);
+  ratePVal.textContent = (state.p * DEG).toFixed(0) + ' °/s';
+  rateQVal.textContent = (state.q * DEG).toFixed(0) + ' °/s';
+  rateRVal.textContent = (state.r * DEG).toFixed(0) + ' °/s';
+
+  // Force readouts + slider sync
+  for (const [key, { input, val }] of Object.entries(forceInputs)) {
+    const v = state.forces[key];
+    if (document.activeElement !== input) input.value = v.toFixed(2);
+    val.textContent = v.toFixed(2);
+  }
+  // Velocity / airflow readouts + slider sync
+  const alphaDeg = state.alpha * DEG;
+  const betaDeg  = state.beta  * DEG;
+  if (document.activeElement !== vMagInput)   vMagInput.value   = state.V.toFixed(2);
+  if (document.activeElement !== vAlphaInput) vAlphaInput.value = alphaDeg.toFixed(1);
+  if (document.activeElement !== vBetaInput)  vBetaInput.value  = betaDeg.toFixed(1);
+  vMagVal.textContent   = state.V.toFixed(2);
+  vAlphaVal.textContent = alphaDeg.toFixed(1) + '°';
+  vBetaVal.textContent  = betaDeg.toFixed(1)  + '°';
+}
+
+// ------------------------------------------------------------
+// Rate-slider binding — slider position = body-axis angular rate.
+// On pointer release the slider snaps back to 0 (joystick behavior);
+// the animation loop integrates the current rate into state.quat.
+// ------------------------------------------------------------
+function hookRateSlider(input, valEl, stateKey) {
+  input.addEventListener('input', (e) => {
+    state[stateKey] = parseFloat(e.target.value) * RAD;
+    valEl.textContent = parseFloat(e.target.value).toFixed(0) + ' °/s';
+  });
+  const snap = () => {
+    if (state[stateKey] === 0 && input.value === '0') return;
+    input.value = 0;
+    state[stateKey] = 0;
+    valEl.textContent = '0 °/s';
+  };
+  // Pointer + touch release → snap back. Keyboard arrow input is NOT snapped,
+  // so keyboard users can hold a rate by leaving the slider off-center.
+  input.addEventListener('pointerup',     snap);
+  input.addEventListener('pointercancel', snap);
+  input.addEventListener('mouseup',       snap);
+  input.addEventListener('touchend',      snap);
+  input.addEventListener('touchcancel',   snap);
+}
+hookRateSlider(ratePInput, ratePVal, 'p');
+hookRateSlider(rateQInput, rateQVal, 'q');
+hookRateSlider(rateRInput, rateRVal, 'r');
+
+// "Level" button — reset the orientation quaternion to identity.
+document.getElementById('level-btn').addEventListener('click', () => {
+  state.quat.identity();
+  updateAircraft();
+});
+
+// Per-slider reset buttons: snap to 0.
+document.querySelectorAll('.zero-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const whichRate = btn.dataset.zeroRate;
+    if (whichRate) state[whichRate] = 0;
+    const whichForce = btn.dataset.zeroForce;
+    if (whichForce) state.forces[whichForce] = 0;
+    if (btn.dataset.zeroV) state.V = 0;
+    if (btn.dataset.zeroWind === 'alpha') state.alpha = 0;
+    if (btn.dataset.zeroWind === 'beta')  state.beta  = 0;
+    updateAircraft();
+  });
+});
+
+// ------------------------------------------------------------
+// Force slider binding
+// ------------------------------------------------------------
+const forceInputs = {
+  lift:   { input: document.getElementById('f-lift'),   val: document.getElementById('f-lift-val')   },
+  drag:   { input: document.getElementById('f-drag'),   val: document.getElementById('f-drag-val')   },
+  thrust: { input: document.getElementById('f-thrust'), val: document.getElementById('f-thrust-val') },
+  weight: { input: document.getElementById('f-weight'), val: document.getElementById('f-weight-val') },
+};
+for (const key of Object.keys(forceInputs)) {
+  const { input } = forceInputs[key];
+  input.addEventListener('input', (e) => {
+    state.forces[key] = parseFloat(e.target.value);
+    updateAircraft();
+  });
+}
+
+// ------------------------------------------------------------
+// Velocity / airflow-angle slider binding
+// ------------------------------------------------------------
+const vMagInput   = document.getElementById('v-mag');
+const vMagVal     = document.getElementById('v-mag-val');
+const vAlphaInput = document.getElementById('v-alpha');
+const vAlphaVal   = document.getElementById('v-alpha-val');
+const vBetaInput  = document.getElementById('v-beta');
+const vBetaVal    = document.getElementById('v-beta-val');
+
+vMagInput.addEventListener('input', (e) => {
+  state.V = parseFloat(e.target.value);
+  updateAircraft();
+});
+vAlphaInput.addEventListener('input', (e) => {
+  state.alpha = parseFloat(e.target.value) * RAD;
+  updateAircraft();
+});
+vBetaInput.addEventListener('input', (e) => {
+  state.beta = parseFloat(e.target.value) * RAD;
+  updateAircraft();
+});
+
+// ------------------------------------------------------------
+// Visibility checkboxes — every [data-show=<key>] toggles state.show[key].
+// ------------------------------------------------------------
+document.querySelectorAll('[data-show]').forEach((chk) => {
+  chk.addEventListener('change', (e) => {
+    state.show[e.target.dataset.show] = e.target.checked;
+    updateAircraft();
+  });
+});
+
+updateAircraft();
+
+// ------------------------------------------------------------
+// Render loop + resize
+// ------------------------------------------------------------
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', onResize);
+
+// Integrate body-axis rotation rates into state.quat. For a body-frame
+// rotation, the new body-to-earth quaternion is q_current · q_delta
+// (post-multiplication), where q_delta is axis-angle about (p,q,r)·dt
+// expressed in the body frame.
+const _clock  = new THREE.Clock();
+const _qDelta = new THREE.Quaternion();
+const _axis   = new THREE.Vector3();
+
+function integrateRates(dt) {
+  const omega = Math.hypot(state.p, state.q, state.r);
+  if (omega < 1e-6) return false;
+  _axis.set(state.p, state.q, state.r).multiplyScalar(1 / omega);
+  _qDelta.setFromAxisAngle(_axis, omega * dt);
+  state.quat.multiply(_qDelta).normalize();
+  return true;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(_clock.getDelta(), 0.05); // cap to avoid huge jumps after tab resume
+  if (integrateRates(dt)) updateAircraft();
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

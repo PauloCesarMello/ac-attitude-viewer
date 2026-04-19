@@ -111,6 +111,7 @@
     font-size: 12px;
     white-space: nowrap;
   }
+  #top-panel .rate-label .short { display: none; }
   #top-panel .rate-row input[type="range"] {
     width: 100%;
     touch-action: manipulation;
@@ -296,11 +297,14 @@
     #attitude-hud .hud-label { font-size: 12px; }
     #attitude-hud .hud-value { font-size: 18px; }
     #top-panel .rate-row {
-      grid-template-columns: 74px 1fr 46px 26px;
+      grid-template-columns: 16px 1fr 38px 24px;
       gap: 6px;
     }
-    #top-panel .rate-label { font-size: 11px; }
-    #top-panel .rate-row .val { font-size: 11px; }
+    #top-panel .rate-label { font-size: 13px; font-weight: 600; text-align: center; }
+    #top-panel .rate-label .long { display: none; }
+    #top-panel .rate-label .short { display: inline; }
+    #top-panel .rate-row .val { font-size: 10px; }
+    #top-panel .rate-row .zero-btn { width: 24px; height: 24px; line-height: 22px; }
     #controls {
       left: 8px;
       right: 8px;
@@ -333,19 +337,25 @@
       <div class="hud-item"><span class="hud-label">Yaw:</span><span class="hud-value" id="yaw-val">0.0°</span></div>
     </div>
     <div class="rate-row">
-      <label for="rate-p" class="rate-label">Roll rate (p)</label>
+      <label for="rate-p" class="rate-label">
+        <span class="long">Roll rate (p)</span><span class="short">p</span>
+      </label>
       <input type="range" id="rate-p" min="-45" max="45" step="1" value="0" />
       <span class="val" id="rate-p-val">0 °/s</span>
       <button class="zero-btn" type="button" data-zero-rate="p" title="Reset">0</button>
     </div>
     <div class="rate-row">
-      <label for="rate-q" class="rate-label">Pitch rate (q)</label>
+      <label for="rate-q" class="rate-label">
+        <span class="long">Pitch rate (q)</span><span class="short">q</span>
+      </label>
       <input type="range" id="rate-q" min="-45" max="45" step="1" value="0" />
       <span class="val" id="rate-q-val">0 °/s</span>
       <button class="zero-btn" type="button" data-zero-rate="q" title="Reset">0</button>
     </div>
     <div class="rate-row">
-      <label for="rate-r" class="rate-label">Yaw rate (r)</label>
+      <label for="rate-r" class="rate-label">
+        <span class="long">Yaw rate (r)</span><span class="short">r</span>
+      </label>
       <input type="range" id="rate-r" min="-45" max="45" step="1" value="0" />
       <span class="val" id="rate-r-val">0 °/s</span>
       <button class="zero-btn" type="button" data-zero-rate="r" title="Reset">0</button>
@@ -1311,19 +1321,6 @@ function hookRateSlider(input, valEl, stateKey) {
     state[stateKey] = parseFloat(e.target.value) * RAD;
     valEl.textContent = parseFloat(e.target.value).toFixed(0) + ' °/s';
   });
-  const snap = () => {
-    if (state[stateKey] === 0 && input.value === '0') return;
-    input.value = 0;
-    state[stateKey] = 0;
-    valEl.textContent = '0 °/s';
-  };
-  // Pointer + touch release → snap back. Keyboard arrow input is NOT snapped,
-  // so keyboard users can hold a rate by leaving the slider off-center.
-  input.addEventListener('pointerup',     snap);
-  input.addEventListener('pointercancel', snap);
-  input.addEventListener('mouseup',       snap);
-  input.addEventListener('touchend',      snap);
-  input.addEventListener('touchcancel',   snap);
 }
 hookRateSlider(ratePInput, ratePVal, 'p');
 hookRateSlider(rateQInput, rateQVal, 'q');

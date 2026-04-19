@@ -52,46 +52,119 @@
   .legend-e { color: #51cf66; }
   .legend-d { color: #4dabf7; }
 
-  #attitude-hud {
+  #top-bar {
     position: absolute;
     top: 10px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 22px;
-    padding: 10px 20px;
-    background: rgba(14, 18, 26, 0.88);
-    border: 1px solid #2a3345;
-    border-radius: 8px;
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: calc(100% - 20px);
     z-index: 5;
+  }
+  #top-panel {
+    flex: 0 1 380px;
+    box-sizing: border-box;
+    background: rgba(14, 18, 26, 0.92);
+    border: 1px solid #2a3345;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  #attitude-hud {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #222b3a;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
   #attitude-hud .hud-item {
     display: inline-flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 4px;
   }
   #attitude-hud .hud-label {
     color: #9aa6b8;
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 500;
   }
   #attitude-hud .hud-value {
     color: #e6e9ef;
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
-    min-width: 5.5ch;
-    text-align: right;
-    display: inline-block;
     letter-spacing: 0.01em;
   }
+  #top-panel .rate-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 52px 28px;
+    gap: 8px;
+    align-items: center;
+  }
+  #top-panel .rate-label {
+    color: #cbd3e1;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  #top-panel .rate-row input[type="range"] {
+    width: 100%;
+    touch-action: manipulation;
+  }
+  #top-panel .rate-row .val {
+    font-size: 12px;
+    color: #e6e9ef;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+  #top-panel .rate-row .zero-btn {
+    width: 28px;
+    height: 28px;
+    line-height: 26px;
+    padding: 0;
+    font-size: 12px;
+    color: #cbd3e1;
+    background: #1d2636;
+    border: 1px solid #2a3345;
+    border-radius: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #top-panel .rate-row .zero-btn:hover,
+  #top-panel .rate-row .zero-btn:active { background: #26324a; color: #fff; }
+  #top-bar .top-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  #level-btn, #top-bar #reset-view {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+    color: #cbd3e1;
+    background: rgba(29, 38, 54, 0.92);
+    border: 1px solid #2a3345;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    touch-action: manipulation;
+    position: static;
+  }
+  #level-btn:hover, #level-btn:active,
+  #top-bar #reset-view:hover, #top-bar #reset-view:active { background: #26324a; color: #fff; }
 
   #controls-toggle {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    bottom: 12px;
+    right: 12px;
     width: 42px;
     height: 42px;
     padding: 0;
@@ -102,7 +175,7 @@
     border: 1px solid #2a3345;
     border-radius: 8px;
     cursor: pointer;
-    display: none;
+    display: block;
     z-index: 10;
     touch-action: manipulation;
   }
@@ -110,19 +183,21 @@
 
   #controls {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 280px;
-    max-height: calc(100vh - 20px);
+    bottom: 64px;
+    right: 12px;
+    width: 300px;
+    max-height: calc(100vh - 80px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    background: rgba(14, 18, 26, 0.88);
+    background: rgba(14, 18, 26, 0.95);
     border: 1px solid #2a3345;
     border-radius: 8px;
     padding: 10px 12px;
     font-size: 12px;
     box-sizing: border-box;
+    z-index: 9;
   }
+  #controls.hidden { display: none; }
   #controls .group {
     margin-bottom: 12px;
     padding-bottom: 10px;
@@ -207,56 +282,39 @@
   #controls .zero-btn:hover { background: #26324a; color: #fff; }
   #controls .zero-btn:active { background: #26324a; color: #fff; }
 
-  #reset-view {
-    position: absolute;
-    bottom: 12px;
-    left: 12px;
-    padding: 10px 16px;
-    font-size: 13px;
-    font-family: inherit;
-    color: #e6e9ef;
-    background: rgba(29, 38, 54, 0.9);
-    border: 1px solid #2a3345;
-    border-radius: 6px;
-    cursor: pointer;
-    touch-action: manipulation;
-  }
-  #reset-view:hover { background: #26324a; color: #fff; }
-  #reset-view:active { background: #26324a; color: #fff; }
-
   /* Phones / narrow screens — hide controls behind a toggle, stack as a
      bottom sheet, hide the NED legend to reclaim space. */
   @media (max-width: 720px), (max-height: 500px) {
     #info { display: none; }
-    #attitude-hud { gap: 12px; padding: 6px 12px; }
-    #attitude-hud .hud-label { font-size: 14px; }
-    #attitude-hud .hud-value { font-size: 18px; min-width: 5ch; }
-    #controls-toggle { display: block; }
+    #top-bar {
+      max-width: calc(100% - 16px);
+      gap: 6px;
+    }
+    #top-panel { padding: 8px 10px; }
+    #level-btn, #top-bar #reset-view { width: 38px; height: 38px; font-size: 18px; }
+    #attitude-hud { gap: 14px; padding-bottom: 6px; }
+    #attitude-hud .hud-label { font-size: 12px; }
+    #attitude-hud .hud-value { font-size: 18px; }
+    #top-panel .rate-row {
+      grid-template-columns: 74px 1fr 46px 26px;
+      gap: 6px;
+    }
+    #top-panel .rate-label { font-size: 11px; }
+    #top-panel .rate-row .val { font-size: 11px; }
     #controls {
-      top: auto;
       left: 8px;
       right: 8px;
-      bottom: 8px;
       width: auto;
-      max-height: 60vh;
+      max-height: 50vh;
       padding: 10px 12px 14px;
       font-size: 13px;
     }
-    #controls.hidden { display: none; }
     #controls input[type="range"] { height: 28px; }
-    #reset-view {
-      bottom: auto;
-      top: 10px;
-      left: 10px;
-      padding: 8px 12px;
-      font-size: 12px;
-    }
   }
 </style>
 </head>
 <body>
 <div id="canvas-container"></div>
-<button id="reset-view" type="button" title="Recenter the camera">Reset view</button>
 <button id="controls-toggle" type="button" aria-label="Toggle controls" title="Toggle controls">☰</button>
 <div id="info">
   <strong>Aircraft Attitude Viewer</strong><br />
@@ -267,58 +325,46 @@
   Drag to orbit &middot; scroll to zoom &middot; right-click drag to pan
 </div>
 
-<div id="attitude-hud" aria-label="Aircraft attitude">
-  <div class="hud-item"><span class="hud-label">Roll</span><span class="hud-value" id="roll-val">0.0°</span></div>
-  <div class="hud-item"><span class="hud-label">Pitch</span><span class="hud-value" id="pitch-val">0.0°</span></div>
-  <div class="hud-item"><span class="hud-label">Yaw</span><span class="hud-value" id="yaw-val">0.0°</span></div>
-</div>
-
-<div id="controls">
-  <div class="group">
-    <div class="title">Body-axis rotation rates</div>
-    <div class="row">
-      <div class="row-head">
-        <label for="rate-p">p — roll rate (X_b)</label>
-        <span class="val" id="rate-p-val">0 °/s</span>
-      </div>
-      <div class="row-body">
-        <input type="range" id="rate-p" min="-45" max="45" step="1" value="0" />
-        <button class="zero-btn" type="button" data-zero-rate="p" title="Reset to 0">0</button>
-      </div>
+<div id="top-bar">
+  <div id="top-panel">
+    <div id="attitude-hud" aria-label="Aircraft attitude">
+      <div class="hud-item"><span class="hud-label">Roll:</span><span class="hud-value" id="roll-val">0.0°</span></div>
+      <div class="hud-item"><span class="hud-label">Pitch:</span><span class="hud-value" id="pitch-val">0.0°</span></div>
+      <div class="hud-item"><span class="hud-label">Yaw:</span><span class="hud-value" id="yaw-val">0.0°</span></div>
     </div>
-    <div class="row">
-      <div class="row-head">
-        <label for="rate-q">q — pitch rate (Y_b)</label>
-        <span class="val" id="rate-q-val">0 °/s</span>
-      </div>
-      <div class="row-body">
-        <input type="range" id="rate-q" min="-45" max="45" step="1" value="0" />
-        <button class="zero-btn" type="button" data-zero-rate="q" title="Reset to 0">0</button>
-      </div>
+    <div class="rate-row">
+      <label for="rate-p" class="rate-label">Roll rate (p)</label>
+      <input type="range" id="rate-p" min="-45" max="45" step="1" value="0" />
+      <span class="val" id="rate-p-val">0 °/s</span>
+      <button class="zero-btn" type="button" data-zero-rate="p" title="Reset">0</button>
     </div>
-    <div class="row">
-      <div class="row-head">
-        <label for="rate-r">r — yaw rate (Z_b)</label>
-        <span class="val" id="rate-r-val">0 °/s</span>
-      </div>
-      <div class="row-body">
-        <input type="range" id="rate-r" min="-45" max="45" step="1" value="0" />
-        <button class="zero-btn" type="button" data-zero-rate="r" title="Reset to 0">0</button>
-      </div>
+    <div class="rate-row">
+      <label for="rate-q" class="rate-label">Pitch rate (q)</label>
+      <input type="range" id="rate-q" min="-45" max="45" step="1" value="0" />
+      <span class="val" id="rate-q-val">0 °/s</span>
+      <button class="zero-btn" type="button" data-zero-rate="q" title="Reset">0</button>
+    </div>
+    <div class="rate-row">
+      <label for="rate-r" class="rate-label">Yaw rate (r)</label>
+      <input type="range" id="rate-r" min="-45" max="45" step="1" value="0" />
+      <span class="val" id="rate-r-val">0 °/s</span>
+      <button class="zero-btn" type="button" data-zero-rate="r" title="Reset">0</button>
     </div>
   </div>
+  <div class="top-actions">
+    <button id="level-btn" type="button" title="Reset Attitude" aria-label="Reset Attitude">↻</button>
+    <button id="reset-view" type="button" title="Reset View" aria-label="Reset View">⌂</button>
+  </div>
+</div>
 
+<div id="controls" class="hidden">
   <div class="group">
     <div class="group-head">
-      <div class="title">Attitude (ZYX: ψ → θ → φ)</div>
+      <div class="title">Display</div>
       <label class="inline-check">
         <input type="checkbox" data-show="eulerArcs" checked />
-        arcs
+        Euler arcs
       </label>
-    </div>
-    <div class="row">
-      <button class="zero-btn" type="button" id="level-btn"
-              style="width:100%;height:28px;line-height:26px;">Level (reset attitude)</button>
     </div>
   </div>
 
@@ -503,21 +549,18 @@ controls.touches = {
   TWO: THREE.TOUCH.DOLLY_PAN,
 };
 
-// Collapsible controls panel on narrow screens.
+// Collapsible controls panel — hidden by default, toggled via the ☰ button.
+// Also closes automatically when the user clicks anywhere outside of it.
 const controlsPanel = document.getElementById('controls');
 const controlsToggle = document.getElementById('controls-toggle');
-const mq = window.matchMedia('(max-width: 720px), (max-height: 500px)');
-function applyCompactLayout() {
-  if (mq.matches) {
-    controlsPanel.classList.add('hidden');
-  } else {
-    controlsPanel.classList.remove('hidden');
-  }
-}
-applyCompactLayout();
-mq.addEventListener('change', applyCompactLayout);
-controlsToggle.addEventListener('click', () => {
+controlsToggle.addEventListener('click', (e) => {
+  e.stopPropagation();
   controlsPanel.classList.toggle('hidden');
+});
+document.addEventListener('pointerdown', (e) => {
+  if (controlsPanel.classList.contains('hidden')) return;
+  if (controlsPanel.contains(e.target) || controlsToggle.contains(e.target)) return;
+  controlsPanel.classList.add('hidden');
 });
 
 // Lighting — hemisphere (sky/ground) + a directional "sun" from above (-Z)
